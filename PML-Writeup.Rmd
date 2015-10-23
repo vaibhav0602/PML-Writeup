@@ -1,0 +1,109 @@
+---
+output: 
+  html_document: 
+    number_sections: yes
+---
+Meta
+---
+title: "Course Writeup - Practicle Machine Learning"
+author: "Vaibhav Patni"
+date: "October 22, 2015"
+output: html_document
+description :This is for submission to coursera course project on practical machine learning.
+---
+
+Details of Exercise 
+---
+The objective of exercise is to predict classe variable. Classe variable basically classifies the manner in which exercise was done. Various input data(predictors) captures movement of a person while doing exercise. This data is transmitted from arm and other bands of health band providers like fitbit, etc.
+
+---
+
+Data for the Exercise 
+---
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+---
+
+Importing Required Libraries
+---
+```{r}
+library(caret)
+library(randomForest)
+```
+
+Importing Training and Test Data
+---
+```{r}
+trainlink<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testlink<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+traindata<-read.csv(trainlink)
+testdata<-read.csv(testlink)
+```
+
+Cleaning and Preprocessing Data
+---
+There are lot(19000+ out of 19600) of NAs in some columns(around 60 out of 160). Additionally almost 60 columns had no values in their 19000 rows. There were two approaches i tried to remove NA and empty columns. First by removing columns which has NAs and/or are empty. Which left me with 19600 rows, 60 columns. Second approach being by removing rows with NA values which left me with only 500 rows,160 columns.First approach yielded better results. So listing down code for the approach.
+```{r}
+#Code below compares number of empty/NA cells in a column and if empty/NA cells are more than 50% of total rows then that column is removed from training data set
+temp<-traindata[, colSums(is.na(traindata)) < nrow(traindata) * 0.5]
+temp1<-temp[,colSums(temp=="")<nrow(temp)*0.5]
+#Removing column 1 which is contains serial number
+temp1<-temp1[,-1]
+dim(temp1)
+preproctraindata<-temp1
+
+#Preprocessing test data.
+temp2<-testdata[, colSums(is.na(testdata)) < nrow(testdata) * 0.5]
+temp3<-temp2[,colSums(temp2=="")<nrow(temp2)*0.5]
+#Removing column 1 which is contains serial number
+temp3<-temp3[,-1]
+dim(temp3)
+preproctestdata<-temp3
+```
+
+Creating Training and Cross validation
+---
+```{r}
+inTrain<-createDataPartition(preproctraindata$classe,p=.8,list=FALSE)
+trainset<-preproctraindata[inTrain,]
+cvset<-preproctraindata[-inTrain,]
+```
+
+Model Fit and Predictions
+---
+RandomForest yielded out of tried algorithm of rtree,randomForest for training.Optimal parameters of Random Forest algorithm are also listed.
+
+```{r}
+#This is run on training dataset. cross validation set is tried in next set.
+train.rf<-randomForest(classe~.,data=trainset,mtry=8,ntree=1000)
+#out of bag error is given by randomForest function even when tried only with training set.
+print(train.rf)
+#Random Forest with cross validation set
+cv.rf<-randomForest(classe~.,data=trainset,mtry=8,ntree=1000,xtest=cvset[,-59],ytest=cvset[,59])
+print(cv.rf)
+```
+
+Predicting classe variable for test set
+---
+```{r}
+test.rf<-randomForest(classe~.,data=trainset,mtry=8,ntree=1000,xtest=preproctestdata[,-59])
+predictions_classe<-test.rf$test[["predicted"]]
+```
+
+Generate txt files to be submitted for course project
+---
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictions_classe)
+```
+
